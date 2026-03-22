@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import streamlit as st
@@ -16,9 +17,6 @@ LOGO_PATH = PROJECT_ROOT / "image.png"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from auditcopilot.dashboard import run_dashboard_analysis
-from auditcopilot.reporting import export_audit_report_pdf
-
 LL97_PENALTY_RATE_USD_PER_MTCO2E = 268.0
 
 
@@ -26,13 +24,18 @@ def main() -> None:
     st.set_page_config(page_title="Energy Audit Copilot", layout="wide")
     _render_header()
 
-    sidebar_inputs = _render_sidebar()
-    if sidebar_inputs["uploaded_file_bytes"] is None:
+    sidebar_inputs, submitted = _render_sidebar()
+    if submitted:
+        st.session_state["analysis_request"] = sidebar_inputs
+        st.session_state.pop("prepared_pdf_bytes", None)
+
+    analysis_request = st.session_state.get("analysis_request")
+    if analysis_request is None or analysis_request["uploaded_file_bytes"] is None:
         _render_empty_state()
         return
 
     try:
-        result = run_dashboard_analysis(**sidebar_inputs)
+        result = _get_dashboard_result(**analysis_request)
     except Exception as exc:
         st.error(f"Analysis could not be completed: {exc}")
         st.stop()
@@ -49,60 +52,63 @@ def main() -> None:
     _render_narrative_summary(result.narrative_summary)
 
 
-def _render_sidebar() -> dict[str, object]:
+def _render_sidebar() -> tuple[dict[str, object], bool]:
     with st.sidebar:
         st.header("Inputs")
-        uploaded_file = st.file_uploader("Upload utility bills CSV", type=["csv"])
-        st.caption("A utility-bill CSV upload is required. The deployed app does not ship with demo bill data.")
+        with st.form("analysis_inputs"):
+            uploaded_file = st.file_uploader("Upload utility bills CSV", type=["csv"])
+            st.caption("A utility-bill CSV upload is required. The deployed app does not ship with demo bill data.")
 
-        st.subheader("Building Metadata")
-        building_name = st.text_input("Building name", value="North Office")
-        building_type = st.text_input("Building type", value="Office")
-        address = st.text_input("Address", value="123 Main St")
-        floor_area_sqft = st.number_input("Floor area (sqft)", min_value=1.0, value=25000.0, step=500.0)
-        year_built = st.number_input("Year built", min_value=1800, max_value=2100, value=1998, step=1)
+            st.subheader("Building Metadata")
+            building_name = st.text_input("Building name", value="North Office")
+            building_type = st.text_input("Building type", value="Office")
+            address = st.text_input("Address", value="123 Main St")
+            floor_area_sqft = st.number_input("Floor area (sqft)", min_value=1.0, value=25000.0, step=500.0)
+            year_built = st.number_input("Year built", min_value=1800, max_value=2100, value=1998, step=1)
 
-        st.subheader("Weather Location")
-        use_building_address = st.checkbox("Use building address for weather", value=False)
-        zip_code = st.text_input(
-            "ZIP code",
-            value="10001",
-            disabled=use_building_address,
-            help="Used for historical weather lookup on uploaded utility files.",
-        )
-        if not use_building_address and zip_code and not re.fullmatch(r"\d{5}(?:-\d{4})?", zip_code):
-            st.warning("ZIP code should be 5 digits or ZIP+4 format.")
-
-        st.subheader("Emissions Factors")
-        electricity_factor = st.number_input(
-            "Electricity factor (mtCO2e/kWh)",
-            min_value=0.0,
-            value=0.000288962,
-            format="%.9f",
-        )
-        gas_factor = st.number_input(
-            "Gas factor (mtCO2e/therm)",
-            min_value=0.0,
-            value=0.005302,
-            format="%.6f",
-        )
-
-        st.subheader("Compliance")
-        compliance_mode = st.selectbox(
-            "Compliance mode",
-            options=["None", "Generic", "NYC LL97"],
-            index=2,
-        )
-        emissions_limit = st.number_input(
-            "Annual emissions limit (mtCO2e)",
-            min_value=0.0,
-            value=120.0,
-            step=5.0,
-        )
-        if compliance_mode == "NYC LL97":
-            st.caption(
-                f"LL97 penalty rate is auto-applied at ${LL97_PENALTY_RATE_USD_PER_MTCO2E:,.0f}/mtCO2e."
+            st.subheader("Weather Location")
+            use_building_address = st.checkbox("Use building address for weather", value=False)
+            zip_code = st.text_input(
+                "ZIP code",
+                value="10001",
+                disabled=use_building_address,
+                help="Used for historical weather lookup on uploaded utility files.",
             )
+            if not use_building_address and zip_code and not re.fullmatch(r"\d{5}(?:-\d{4})?", zip_code):
+                st.warning("ZIP code should be 5 digits or ZIP+4 format.")
+
+            st.subheader("Emissions Factors")
+            electricity_factor = st.number_input(
+                "Electricity factor (mtCO2e/kWh)",
+                min_value=0.0,
+                value=0.000288962,
+                format="%.9f",
+            )
+            gas_factor = st.number_input(
+                "Gas factor (mtCO2e/therm)",
+                min_value=0.0,
+                value=0.005302,
+                format="%.6f",
+            )
+
+            st.subheader("Compliance")
+            compliance_mode = st.selectbox(
+                "Compliance mode",
+                options=["None", "Generic", "NYC LL97"],
+                index=2,
+            )
+            emissions_limit = st.number_input(
+                "Annual emissions limit (mtCO2e)",
+                min_value=0.0,
+                value=120.0,
+                step=5.0,
+            )
+            if compliance_mode == "NYC LL97":
+                st.caption(
+                    f"LL97 penalty rate is auto-applied at ${LL97_PENALTY_RATE_USD_PER_MTCO2E:,.0f}/mtCO2e."
+                )
+
+            submitted = st.form_submit_button("Run Analysis", width="stretch")
 
     return {
         "uploaded_file_bytes": None if uploaded_file is None else uploaded_file.getvalue(),
@@ -126,7 +132,7 @@ def _render_sidebar() -> dict[str, object]:
             "emissions_limit_mtco2e": emissions_limit,
             "penalty_rate_usd_per_mtco2e": LL97_PENALTY_RATE_USD_PER_MTCO2E,
         },
-    }
+    }, submitted
 
 
 def _render_header() -> None:
@@ -173,17 +179,55 @@ def _render_empty_state() -> None:
     )
 
 
+@st.cache_data(show_spinner="Running utility and weather analysis...")
+def _get_dashboard_result(
+    uploaded_file_bytes: bytes | None,
+    building_metadata: dict[str, Any],
+    weather_settings: dict[str, Any],
+    emissions_factor_settings: dict[str, float],
+    compliance_mode: str,
+    compliance_settings: dict[str, float],
+):
+    from auditcopilot.dashboard import run_dashboard_analysis
+
+    return run_dashboard_analysis(
+        uploaded_file_bytes=uploaded_file_bytes,
+        building_metadata=building_metadata,
+        weather_settings=weather_settings,
+        emissions_factor_settings=emissions_factor_settings,
+        compliance_mode=compliance_mode,
+        compliance_settings=compliance_settings,
+    )
+
+
+@st.cache_data(show_spinner="Generating PDF report...")
+def _get_export_pdf_bytes(result):
+    from auditcopilot.reporting import export_audit_report_pdf
+
+    return export_audit_report_pdf(result)
+
+
 def _render_export_controls(result) -> None:
     st.subheader("Export")
-    pdf_bytes = export_audit_report_pdf(result)
+    prepare_col, download_col = st.columns([1, 1])
+    with prepare_col:
+        if st.button("Prepare PDF Report", width="stretch"):
+            st.session_state["prepared_pdf_bytes"] = _get_export_pdf_bytes(result)
+
+    pdf_bytes = st.session_state.get("prepared_pdf_bytes")
+    if pdf_bytes is None:
+        st.caption("Generate the PDF only when needed to keep the dashboard fast.")
+        return
+
     file_stem = result.building_metadata["building_name"].lower().replace(" ", "_")
-    st.download_button(
-        label="Download Audit Report PDF",
-        data=pdf_bytes,
-        file_name=f"{file_stem}_audit_report.pdf",
-        mime="application/pdf",
-        width="stretch",
-    )
+    with download_col:
+        st.download_button(
+            label="Download Audit Report PDF",
+            data=pdf_bytes,
+            file_name=f"{file_stem}_audit_report.pdf",
+            mime="application/pdf",
+            width="stretch",
+        )
 
 
 def _render_weather_summary(weather_metadata: dict[str, object]) -> None:
