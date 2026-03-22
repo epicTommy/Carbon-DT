@@ -1,6 +1,6 @@
-# Energy Audit Copilot MVP
+# Carbon DT
 
-Energy Audit Copilot is a Python and Streamlit MVP for utility-bill ingestion, expected-usage baselining, diagnostics, recommendations, carbon estimation, compliance screening, and PDF audit report export.
+Carbon DT is a Python and Streamlit MVP for utility-bill ingestion, expected-usage baselining, diagnostics, recommendations, carbon estimation, compliance screening, and PDF audit report export.
 
 ## Goals
 

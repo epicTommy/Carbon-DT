@@ -1,1 +1,1 @@
-"""Test package for Energy Audit Copilot."""
+"""Test package for Carbon DT."""

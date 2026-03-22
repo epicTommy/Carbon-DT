@@ -1,1 +1,1 @@
-"""UI entry points for the Energy Audit Copilot MVP."""
+"""UI entry points for Carbon DT."""

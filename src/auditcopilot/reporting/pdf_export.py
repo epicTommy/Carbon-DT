@@ -92,7 +92,7 @@ def _title_page(result: DashboardResult, styles):
     metadata = result.building_metadata
     return [
         Spacer(1, 1.1 * inch),
-        Paragraph("Energy Audit Copilot MVP", styles["TitleLarge"]),
+        Paragraph("Carbon DT", styles["TitleLarge"]),
         Spacer(1, 0.25 * inch),
         Paragraph(f"Audit Report for {metadata['building_name']}", styles["Heading2"]),
         Spacer(1, 0.15 * inch),

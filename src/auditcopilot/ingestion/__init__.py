@@ -1,4 +1,4 @@
-"""Ingestion interfaces for Energy Audit Copilot."""
+"""Ingestion interfaces for Carbon DT."""
 
 from auditcopilot.ingestion.utility_bills import (
     UtilityBillIngestionResult,

@@ -79,7 +79,7 @@ def test_export_audit_report_pdf_returns_pdf_bytes_with_expected_sections(monkey
     pdf_bytes = export_audit_report_pdf(result)
 
     assert pdf_bytes.startswith(b"%PDF")
-    assert b"Energy Audit Copilot MVP" in pdf_bytes
+    assert b"Carbon DT" in pdf_bytes
     assert b"Building Summary" in pdf_bytes
     assert b"Carbon And Compliance Summary" in pdf_bytes
     assert b"Disclaimer" in pdf_bytes

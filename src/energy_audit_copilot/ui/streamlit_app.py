@@ -1,4 +1,4 @@
-"""Streamlit MVP UI for the Energy Audit Copilot dashboard."""
+"""Streamlit UI for the Carbon DT dashboard."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ LL97_PENALTY_RATE_USD_PER_MTCO2E = 268.0
 
 
 def main() -> None:
-    st.set_page_config(page_title="Energy Audit Copilot", layout="wide")
+    st.set_page_config(page_title="Carbon DT", layout="wide")
     _render_header()
 
     sidebar_inputs, submitted = _render_sidebar()
@@ -141,7 +141,7 @@ def _render_header() -> None:
         if LOGO_PATH.exists():
             st.image(str(LOGO_PATH), width=220)
     with right_col:
-        st.title("Energy Audit Copilot MVP")
+        st.title("Carbon DT")
         st.caption("Interactive utility, diagnostics, recommendations, and compliance dashboard.")
 
 

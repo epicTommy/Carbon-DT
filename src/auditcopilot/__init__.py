@@ -1,2 +1,1 @@
-"""Core package for Energy Audit Copilot implementation modules."""
-
+"""Core package for Carbon DT implementation modules."""
