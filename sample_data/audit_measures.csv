@@ -1,0 +1,3 @@
+measure_id,building_id,measure_name,category,estimated_savings_kwh,estimated_cost_usd,status
+M001,B001,Lighting Retrofit,lighting,42000,18000,backlog
+M002,B002,Add Scheduling Controls,controls,12500,6500,evaluated

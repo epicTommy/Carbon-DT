@@ -1,0 +1,3 @@
+building_id,building_name,address,building_type,floor_area_sqft,year_built
+B001,North Office,123 Main St,Office,25000,1998
+B002,South Warehouse,456 Industrial Rd,Warehouse,40000,2005

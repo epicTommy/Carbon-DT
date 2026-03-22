@@ -1,0 +1,3 @@
+equipment_id,building_id,system_type,equipment_name,quantity,status
+EQ001,B001,HVAC,Rooftop Unit,4,active
+EQ002,B002,lighting,High Bay Fixture,120,active
