@@ -184,7 +184,3 @@ Feature engineering helpers live in [`src/auditcopilot/features/monthly_features
 ## Testing
 
 The repository includes automated tests for ingestion, weather helpers, baseline fallback behavior, diagnostics, recommendation ranking, emissions/compliance, and PDF export under [`tests/`](tests/).
-
-## License
-
-Add the appropriate license for this project before external distribution.
