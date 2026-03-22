@@ -14,10 +14,10 @@ Energy Audit Copilot is a Python and Streamlit MVP for utility-bill ingestion, e
 This repository currently includes:
 
 - Utility bill ingestion with schema validation, unit normalization, and monthly expansion
-- Demo weather ingestion and monthly feature engineering
+- Open-Meteo historical weather lookup and monthly feature engineering
 - Separate electricity and gas baseline models with heuristic fallback
 - Diagnostics, recommendation ranking, emissions, compliance, and PDF report export
-- A Streamlit dashboard that starts immediately from sample data
+- A Streamlit dashboard designed for uploaded utility-bill data
 
 This repository does not yet include:
 
@@ -41,7 +41,6 @@ Streamlit UI
 ```text
 .
 |-- docs/
-|-- sample_data/
 |-- src/
 |   |-- auditcopilot/
 |   |   |-- baselines/
@@ -55,8 +54,6 @@ Streamlit UI
 |   |   |-- reporting/
 |   |   `-- weather/
 |   `-- energy_audit_copilot/
-|       |-- data/
-|       |-- domain/
 |       `-- ui/
 `-- tests/
 ```
@@ -89,29 +86,18 @@ pip install -r requirements.txt
 streamlit run src/energy_audit_copilot/ui/streamlit_app.py
 ```
 
-The app will start with demo data from [`sample_data/`](sample_data/) if no CSV is uploaded.
+The app requires a utility-bill CSV upload in the sidebar before analysis will run.
 
-Optional runtime behavior:
+Runtime behavior:
 
-- When a CSV is uploaded, the app attempts to fetch historical weather for the billing period from Open-Meteo and caches it locally under `.cache/open_meteo/`
-- If Open-Meteo lookup fails, the app falls back to the bundled sample monthly weather
+- After upload, the app fetches historical weather for the billing period from Open-Meteo and caches it locally under `.cache/open_meteo/`
+- The user should provide a ZIP code or building address for geocoding
 
 ### 4. Run tests
 
 ```bash
 pytest -q
 ```
-
-## Sample Data
-
-The [`sample_data/`](sample_data/) directory contains placeholder CSV files for:
-
-- building metadata
-- utility bills
-- equipment inventory
-- candidate energy conservation measures
-
-See [`sample_data/SCHEMA.md`](sample_data/SCHEMA.md) for the intended column-level meaning.
 
 ## Utility Bill Input Schema
 
@@ -136,6 +122,8 @@ Billing periods that span multiple calendar months are prorated into monthly row
 - a clean pandas `DataFrame` with normalized `usage`, `usage_unit`, and `billing_month`
 - structured validation messages with `level`, `code`, `message`, `row`, and `column`
 
+See [`docs/INPUT_SCHEMA.md`](docs/INPUT_SCHEMA.md) for the deployed input contract.
+
 ## Weather And Features
 
 Monthly weather support is implemented through a provider abstraction in [`src/auditcopilot/weather/providers.py`](src/auditcopilot/weather/providers.py), with normalization logic in [`src/auditcopilot/weather/monthly.py`](src/auditcopilot/weather/monthly.py).
@@ -143,7 +131,7 @@ Monthly weather support is implemented through a provider abstraction in [`src/a
 Available behavior:
 
 - `WeatherProvider` defines a modular weather interface independent from Streamlit
-- `DemoMonthlyWeatherProvider` reads offline demo weather from [`sample_data/monthly_weather.csv`](sample_data/monthly_weather.csv)
+- `OpenMeteoWeatherProvider` fetches historical weather using a ZIP code or building address
 - monthly weather normalization produces `billing_month`, `avg_temp`, `hdd`, and `cdd`
 
 Feature engineering helpers live in [`src/auditcopilot/features/monthly_features.py`](src/auditcopilot/features/monthly_features.py) and add:
@@ -157,7 +145,7 @@ Feature engineering helpers live in [`src/auditcopilot/features/monthly_features
 
 ## What The App Does
 
-- Ingests utility bills from CSV or bundled sample data
+- Ingests uploaded utility bills from CSV
 - Normalizes electricity and gas usage and joins monthly weather
 - Engineers monthly intensity and seasonality features
 - Builds separate expected-usage baselines for electricity and gas
@@ -169,7 +157,7 @@ Feature engineering helpers live in [`src/auditcopilot/features/monthly_features
 ## Limitations
 
 - The MVP assumes electricity is already normalized to `kwh` and gas to `therms` after ingestion; other fuels are not yet modeled
-- Demo weather is local sample data, not live weather observations
+- Weather lookup depends on Open-Meteo availability and successful geocoding
 - Baseline models prioritize explainability over forecast accuracy
 - Fallback baseline behavior uses simple weather normalization when history is limited
 - Recommendation savings, carbon ranges, and payback notes are heuristic placeholders
@@ -179,8 +167,7 @@ Feature engineering helpers live in [`src/auditcopilot/features/monthly_features
 
 ## Development Conventions
 
-- Keep business logic inside `services/` and `domain/`, not directly in the UI
-- Treat `sample_data/` as non-production demo input
+- Keep business logic inside `src/auditcopilot/`, not directly in the Streamlit page
 - Add tests alongside each new capability as the MVP expands
 - Prefer small, composable modules over monolithic scripts
 

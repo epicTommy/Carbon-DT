@@ -27,7 +27,15 @@ def main() -> None:
     _render_header()
 
     sidebar_inputs = _render_sidebar()
-    result = run_dashboard_analysis(**sidebar_inputs)
+    if sidebar_inputs["uploaded_file_bytes"] is None:
+        _render_empty_state()
+        return
+
+    try:
+        result = run_dashboard_analysis(**sidebar_inputs)
+    except Exception as exc:
+        st.error(f"Analysis could not be completed: {exc}")
+        st.stop()
 
     _render_validation_messages(result.validation_messages)
     _render_weather_summary(result.weather_metadata)
@@ -45,6 +53,7 @@ def _render_sidebar() -> dict[str, object]:
     with st.sidebar:
         st.header("Inputs")
         uploaded_file = st.file_uploader("Upload utility bills CSV", type=["csv"])
+        st.caption("A utility-bill CSV upload is required. The deployed app does not ship with demo bill data.")
 
         st.subheader("Building Metadata")
         building_name = st.text_input("Building name", value="North Office")
@@ -140,6 +149,30 @@ def _render_validation_messages(messages: list[dict[str, object]]) -> None:
     st.dataframe(messages_df, width="stretch", hide_index=True)
 
 
+def _render_empty_state() -> None:
+    st.info("Upload a utility-bill CSV in the sidebar to start the analysis.")
+    st.markdown(
+        """
+        **Required CSV columns**
+
+        - `billing_start`
+        - `billing_end`
+        - `utility_type`
+        - `usage`
+        - `usage_unit`
+        - `cost`
+        """
+    )
+    st.markdown(
+        """
+        **Weather behavior**
+
+        - Historical weather is fetched from Open-Meteo after upload.
+        - Use a ZIP code or building address in the sidebar so the app can geocode the site.
+        """
+    )
+
+
 def _render_export_controls(result) -> None:
     st.subheader("Export")
     pdf_bytes = export_audit_report_pdf(result)
@@ -158,16 +191,6 @@ def _render_weather_summary(weather_metadata: dict[str, object]) -> None:
     source = weather_metadata.get("source")
     location_query = weather_metadata.get("location_query")
     resolved_location = weather_metadata.get("resolved_location")
-
-    if source == "sample":
-        st.info("Using bundled sample monthly weather data.")
-        return
-
-    if source == "sample_fallback":
-        st.warning(
-            f"Using sample weather fallback. Requested weather query: {location_query or 'N/A'}"
-        )
-        return
 
     if source == "open_meteo":
         if isinstance(resolved_location, dict):

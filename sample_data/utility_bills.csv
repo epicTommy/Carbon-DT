@@ -1,3 +1,0 @@
-bill_id,building_id,meter_type,billing_period_start,billing_period_end,usage,cost_usd
-UB001,B001,electricity,2025-01-01,2025-01-31,18250,2460.75
-UB002,B002,gas,2025-01-01,2025-01-31,980,1185.40

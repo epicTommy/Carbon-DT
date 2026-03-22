@@ -29,18 +29,21 @@ from auditcopilot.recommendations import (
     generate_recommendations,
 )
 from auditcopilot.weather import (
-    DemoMonthlyWeatherProvider,
     OpenMeteoWeatherProvider,
     build_monthly_weather_dataframe,
 )
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_UTILITY_PATH = PROJECT_ROOT / "sample_data" / "utility_bills_mvp.csv"
-DEFAULT_BUILDING_PATH = PROJECT_ROOT / "sample_data" / "buildings.csv"
-DEFAULT_WEATHER_PATH = PROJECT_ROOT / "sample_data" / "monthly_weather.csv"
 WEATHER_CACHE_DIR = PROJECT_ROOT / ".cache" / "open_meteo"
 MIN_MODEL_TRAINING_ROWS = 18
+DEFAULT_BUILDING_METADATA = {
+    "building_name": "North Office",
+    "building_type": "Office",
+    "address": "123 Main St",
+    "floor_area_sqft": 25000.0,
+    "year_built": 1998,
+}
 
 
 @dataclass(frozen=True)
@@ -69,7 +72,7 @@ def run_dashboard_analysis(
     compliance_mode: str,
     compliance_settings: dict[str, float],
 ) -> DashboardResult:
-    """Build the full dashboard data payload from user inputs and uploaded or sample data."""
+    """Build the full dashboard data payload from user inputs and an uploaded utility-bill file."""
     utility_df, source_label = _load_utility_source(uploaded_file_bytes)
     ingestion_result = ingest_utility_bills(utility_df)
 
@@ -106,7 +109,6 @@ def run_dashboard_analysis(
 
     weather_df, weather_metadata, weather_source_message = _load_weather_dataframe(
         ingestion_result=ingestion_result,
-        source_label=source_label,
         building_metadata=resolved_building_metadata,
         weather_settings=weather_settings,
     )
@@ -161,83 +163,55 @@ def run_dashboard_analysis(
 
 
 def _load_utility_source(uploaded_file_bytes: bytes | None) -> tuple[pd.DataFrame, str]:
-    if uploaded_file_bytes:
-        return pd.read_csv(BytesIO(uploaded_file_bytes)), "uploaded utility bill file"
-    return pd.read_csv(DEFAULT_UTILITY_PATH), "sample utility data"
+    if not uploaded_file_bytes:
+        raise ValueError("An uploaded utility bill file is required to run the dashboard analysis.")
+    return pd.read_csv(BytesIO(uploaded_file_bytes)), "uploaded utility bill file"
 
 
 def _resolve_building_metadata(user_metadata: dict[str, Any]) -> dict[str, Any]:
-    default_building = pd.read_csv(DEFAULT_BUILDING_PATH).iloc[0].to_dict()
     resolved = {
-        "building_name": user_metadata.get("building_name") or default_building["building_name"],
-        "building_type": user_metadata.get("building_type") or default_building["building_type"],
-        "address": user_metadata.get("address") or default_building["address"],
-        "floor_area_sqft": float(user_metadata.get("floor_area_sqft") or default_building["floor_area_sqft"]),
-        "year_built": int(user_metadata.get("year_built") or default_building["year_built"]),
+        "building_name": user_metadata.get("building_name") or DEFAULT_BUILDING_METADATA["building_name"],
+        "building_type": user_metadata.get("building_type") or DEFAULT_BUILDING_METADATA["building_type"],
+        "address": user_metadata.get("address") or DEFAULT_BUILDING_METADATA["address"],
+        "floor_area_sqft": float(user_metadata.get("floor_area_sqft") or DEFAULT_BUILDING_METADATA["floor_area_sqft"]),
+        "year_built": int(user_metadata.get("year_built") or DEFAULT_BUILDING_METADATA["year_built"]),
     }
     return resolved
 
 
 def _load_weather_dataframe(
     ingestion_result: UtilityBillIngestionResult,
-    source_label: str,
     building_metadata: dict[str, Any],
     weather_settings: dict[str, Any],
 ) -> tuple[pd.DataFrame, dict[str, Any], dict[str, Any]]:
-    if source_label == "sample utility data":
-        return build_monthly_weather_dataframe(DemoMonthlyWeatherProvider(DEFAULT_WEATHER_PATH)), {
-            "source": "sample",
-            "location_query": None,
-            "resolved_location": None,
-        }, {
-            "level": "info",
-            "code": "weather_source",
-            "message": "Using bundled sample monthly weather data.",
-            "row": None,
-            "column": None,
+    start_date = pd.to_datetime(ingestion_result.dataframe["billing_start"]).min().strftime("%Y-%m-%d")
+    end_date = pd.to_datetime(ingestion_result.dataframe["billing_end"]).max().strftime("%Y-%m-%d")
+    location_query = _resolve_weather_location_query(building_metadata, weather_settings)
+    provider = OpenMeteoWeatherProvider(
+        query=location_query,
+        start_date=start_date,
+        end_date=end_date,
+        cache_dir=WEATHER_CACHE_DIR,
+    )
+    weather_df = build_monthly_weather_dataframe(provider)
+    resolved_location = None
+    if provider.last_location is not None:
+        resolved_location = {
+            "name": provider.last_location.name,
+            "latitude": provider.last_location.latitude,
+            "longitude": provider.last_location.longitude,
         }
-
-    try:
-        start_date = pd.to_datetime(ingestion_result.dataframe["billing_start"]).min().strftime("%Y-%m-%d")
-        end_date = pd.to_datetime(ingestion_result.dataframe["billing_end"]).max().strftime("%Y-%m-%d")
-        location_query = _resolve_weather_location_query(building_metadata, weather_settings)
-        provider = OpenMeteoWeatherProvider(
-            query=location_query,
-            start_date=start_date,
-            end_date=end_date,
-            cache_dir=WEATHER_CACHE_DIR,
-        )
-        weather_df = build_monthly_weather_dataframe(provider)
-        resolved_location = None
-        if provider.last_location is not None:
-            resolved_location = {
-                "name": provider.last_location.name,
-                "latitude": provider.last_location.latitude,
-                "longitude": provider.last_location.longitude,
-            }
-        return weather_df, {
-            "source": "open_meteo",
-            "location_query": location_query,
-            "resolved_location": resolved_location,
-        }, {
-            "level": "info",
-            "code": "weather_source",
-            "message": "Using cached historical weather from Open-Meteo for the uploaded billing period.",
-            "row": None,
-            "column": None,
-        }
-    except Exception as exc:
-        return build_monthly_weather_dataframe(DemoMonthlyWeatherProvider(DEFAULT_WEATHER_PATH)), {
-            "source": "sample_fallback",
-            "location_query": _resolve_weather_location_query(building_metadata, weather_settings),
-            "resolved_location": None,
-        }, {
-            "level": "warning",
-            "code": "weather_fallback",
-            "message": f"Open-Meteo weather lookup failed; falling back to sample weather data. Reason: {exc}",
-            "row": None,
-            "column": None,
-        }
+    return weather_df, {
+        "source": "open_meteo",
+        "location_query": location_query,
+        "resolved_location": resolved_location,
+    }, {
+        "level": "info",
+        "code": "weather_source",
+        "message": "Using cached historical weather from Open-Meteo for the uploaded billing period.",
+        "row": None,
+        "column": None,
+    }
 
 
 def _resolve_weather_location_query(
