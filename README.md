@@ -89,7 +89,7 @@ pip install -r requirements.txt
 streamlit run src/energy_audit_copilot/ui/streamlit_app.py
 ```
 
-The app will start with demo data from [`sample_data/`](/Users/hyungkyulee/2.%20dev/personal/htg_dt/sample_data) if no CSV is uploaded.
+The app will start with demo data from [`sample_data/`](sample_data/) if no CSV is uploaded.
 
 Optional runtime behavior:
 
@@ -104,18 +104,18 @@ pytest -q
 
 ## Sample Data
 
-The [`sample_data/`](/Users/hyungkyulee/2.%20dev/personal/htg_dt/sample_data) directory contains placeholder CSV files for:
+The [`sample_data/`](sample_data/) directory contains placeholder CSV files for:
 
 - building metadata
 - utility bills
 - equipment inventory
 - candidate energy conservation measures
 
-See [`sample_data/SCHEMA.md`](/Users/hyungkyulee/2.%20dev/personal/htg_dt/sample_data/SCHEMA.md) for the intended column-level meaning.
+See [`sample_data/SCHEMA.md`](sample_data/SCHEMA.md) for the intended column-level meaning.
 
 ## Utility Bill Input Schema
 
-Utility bill ingestion is implemented in [`src/auditcopilot/ingestion/utility_bills.py`](/Users/hyungkyulee/2.%20dev/personal/htg_dt/src/auditcopilot/ingestion/utility_bills.py).
+Utility bill ingestion is implemented in [`src/auditcopilot/ingestion/utility_bills.py`](src/auditcopilot/ingestion/utility_bills.py).
 
 Accepted CSV columns:
 
@@ -138,15 +138,15 @@ Billing periods that span multiple calendar months are prorated into monthly row
 
 ## Weather And Features
 
-Monthly weather support is implemented through a provider abstraction in [`src/auditcopilot/weather/providers.py`](/Users/hyungkyulee/2.%20dev/personal/htg_dt/src/auditcopilot/weather/providers.py), with normalization logic in [`src/auditcopilot/weather/monthly.py`](/Users/hyungkyulee/2.%20dev/personal/htg_dt/src/auditcopilot/weather/monthly.py).
+Monthly weather support is implemented through a provider abstraction in [`src/auditcopilot/weather/providers.py`](src/auditcopilot/weather/providers.py), with normalization logic in [`src/auditcopilot/weather/monthly.py`](src/auditcopilot/weather/monthly.py).
 
 Available behavior:
 
 - `WeatherProvider` defines a modular weather interface independent from Streamlit
-- `DemoMonthlyWeatherProvider` reads offline demo weather from [`sample_data/monthly_weather.csv`](/Users/hyungkyulee/2.%20dev/personal/htg_dt/sample_data/monthly_weather.csv)
+- `DemoMonthlyWeatherProvider` reads offline demo weather from [`sample_data/monthly_weather.csv`](sample_data/monthly_weather.csv)
 - monthly weather normalization produces `billing_month`, `avg_temp`, `hdd`, and `cdd`
 
-Feature engineering helpers live in [`src/auditcopilot/features/monthly_features.py`](/Users/hyungkyulee/2.%20dev/personal/htg_dt/src/auditcopilot/features/monthly_features.py) and add:
+Feature engineering helpers live in [`src/auditcopilot/features/monthly_features.py`](src/auditcopilot/features/monthly_features.py) and add:
 
 - `electric_kwh_per_sqft`
 - `gas_therms_per_sqft`
@@ -196,7 +196,7 @@ Feature engineering helpers live in [`src/auditcopilot/features/monthly_features
 
 ## Testing
 
-The repository includes automated tests for ingestion, weather helpers, baseline fallback behavior, diagnostics, recommendation ranking, emissions/compliance, and PDF export under [`tests/`](/Users/hyungkyulee/2.%20dev/personal/htg_dt/tests).
+The repository includes automated tests for ingestion, weather helpers, baseline fallback behavior, diagnostics, recommendation ranking, emissions/compliance, and PDF export under [`tests/`](tests/).
 
 ## License
 
